@@ -31,16 +31,6 @@ enum Color {
     Blue
 }
 
-fn colorize(string: String, color: Color) -> String {
-    let color_str = match color {
-        Red => "\x1B[31m",
-        Yellow => "\x1B[33m",
-        Green => "\x1B[32m",
-        Blue => "\x1B[34m"
-    };
-    color_str.to_string().append(string.as_slice()).append("\x1B[39m")
-}
-
 impl<Rq: Request, Rs: Response> Ingot<Rq, Rs> for Logger {
     fn enter(&mut self, _req: &mut Rq, _res: &mut Rs, _alloy: &mut Alloy) -> Status {
         self.entry_time = precise_time_ns();
