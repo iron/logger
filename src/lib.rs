@@ -1,13 +1,15 @@
+//! Request logging middleware for Iron
+
 #![crate_id = "logger"]
 #![license = "MIT"]
-
-//! Request logging middleware for Iron
 
 extern crate iron;
 extern crate time;
 extern crate term;
 
-use iron::{Middleware, Alloy, Request, Response};
+use std::io::IoResult;
+
+use iron::{Request, Response, Middleware, Alloy};
 use iron::middleware::{Status, Continue};
 use time::precise_time_ns;
 use term::{Terminal, stdout};
