@@ -2,6 +2,7 @@
 
 #![crate_id = "logger"]
 #![license = "MIT"]
+#![deny(missing_doc)]
 
 extern crate iron;
 extern crate time;
