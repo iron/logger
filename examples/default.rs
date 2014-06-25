@@ -12,6 +12,6 @@ use logger::Logger;
 fn main() {
     let logger = Logger::new(None);
     let mut server: ServerT = Iron::new();
-    server.chain.link(Logger::new());
+    server.chain.link(logger);
     server.listen(Ipv4Addr(127, 0, 0, 1), 3000);
 }
