@@ -7,6 +7,8 @@ use iron::{Iron, ServerT, Chain};
 
 use logger::Logger;
 
+// This example attaches an instance of `Logger` to the chain.
+// `curl` to our server for a color coded print out.
 fn main() {
     let mut server: ServerT = Iron::new();
     server.chain.link(Logger::new());
