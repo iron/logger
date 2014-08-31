@@ -10,7 +10,7 @@ pub struct Format(pub Vec<FormatUnit>);
 impl Format {
     /// Return the default formatting style for the `Logger`:
     ///
-    /// ```
+    /// ```ignore
     /// {method} {uri} -> {status} ({response_time})
     /// ```
     /// The method is in bold, and the response status is colored blue for 100s,

@@ -8,10 +8,12 @@ extern crate iron;
 extern crate http;
 extern crate time;
 extern crate term;
+extern crate typemap;
 
-use iron::{Middleware, Request, Response, Status, Continue};
+use iron::{BeforeMiddleware, AfterMiddleware, Request, Response, IronResult};
 use time::precise_time_ns;
 use term::{Terminal, WriterWrapper, stdout};
+use typemap::Assoc;
 
 use std::io::IoResult;
 
@@ -20,31 +22,36 @@ use format::{Format, FormatText, Str, Method, URI, Status, ResponseTime,
 
 pub mod format;
 
-/// `Middleware` for logging request and response info to the terminal.
-#[deriving(Clone)]
+/// Logs request and response info to the terminal.
 pub struct Logger {
-    entry_time: u64,
     format: Option<Format>
 }
+
+pub struct ResponseStart;
+
+impl Assoc<u64> for ResponseStart {}
 
 impl Logger {
     /// Create a new `Logger` with the specified `format`. If a `None` is passed in, uses the default format:
     ///
-    /// ```
+    /// ```ignore
     /// {method} {uri} -> {status} ({response_time} ms)
     /// ```
     pub fn new(format: Option<Format>) -> Logger {
-        Logger { entry_time: 0u64, format: format }
+        Logger { format: format }
     }
 }
 
-impl Middleware for Logger {
-    fn enter(&mut self, _: &mut Request, _: &mut Response) -> Status {
-        self.entry_time = precise_time_ns();
-        Continue
+impl BeforeMiddleware for Logger {
+    fn before(&self, req: &mut Request) -> IronResult<()> {
+        req.extensions.insert::<ResponseStart, u64>(precise_time_ns());
+        Ok(())
     }
-    fn exit(&mut self, req: &mut Request, res: &mut Response) -> Status {
-        let response_time_ms = (precise_time_ns() - self.entry_time) as f64 / 1000000.0;
+}
+
+impl AfterMiddleware for Logger {
+    fn after(&self, req: &mut Request, res: &mut Response) -> IronResult<()> {
+        let response_time_ms = precise_time_ns() - *req.extensions.find::<ResponseStart, u64>().unwrap();
         let Format(format) = self.format.clone().unwrap_or(Format::default());
 
         let render = |text: &FormatText| {
@@ -94,6 +101,6 @@ impl Middleware for Logger {
             }
             None => { println!("Logger could not open terminal"); }
         }
-        Continue
+        Ok(())
     }
 }
