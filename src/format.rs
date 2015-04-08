@@ -17,7 +17,7 @@ use self::FormatAttr::{ConstantAttrs, FunctionAttrs};
 
 /// A formatting style for the `Logger`, consisting of multiple
 /// `FormatUnit`s concatenated into one line.
-#[deriving(Clone)]
+#[derive(Clone)]
 pub struct Format(pub Vec<FormatUnit>);
 
 impl Default for Format {
@@ -33,7 +33,7 @@ impl Default for Format {
     /// green for 200s, yellow for 300s, red for 400s, and bright red for 500s.
     fn default() -> Format {
         fn status_color(_req: &Request, res: &Response) -> Option<color::Color> {
-            match *res.status.as_ref().unwrap_or(&NotFound) as u16 / 100 {
+            match (*res.status.as_ref().unwrap_or(&NotFound)).to_u16() / 100 {
                 1 => Some(color::BLUE), // Information
                 2 => Some(color::GREEN), // Success
                 3 => Some(color::YELLOW), // Redirection
@@ -118,7 +118,7 @@ impl Format {
 
 struct FormatParser<'a> {
     // The characters of the format string.
-    chars: Peekable<char, Chars<'a>>,
+    chars: Peekable<Chars<'a>>,
 
     // Passed-in FormatColors
     colors: IntoIter<FormatColor>,
@@ -137,7 +137,7 @@ struct FormatParser<'a> {
 }
 
 impl<'a> FormatParser<'a> {
-    fn new(chars: Peekable<char, Chars>, colors: IntoIter<FormatColor>,
+    fn new(chars: Peekable<Chars>, colors: IntoIter<FormatColor>,
            attrs: IntoIter<FormatAttr>) -> FormatParser {
         FormatParser {
             chars: chars,
@@ -154,13 +154,15 @@ impl<'a> FormatParser<'a> {
 }
 
 // Some(None) means there was a parse error and this FormatParser should be abandoned.
-impl<'a> Iterator<Option<FormatUnit>> for FormatParser<'a> {
+impl<'a> Iterator for FormatParser<'a> {
+    type Item = Option<FormatUnit>;
+
     fn next(&mut self) -> Option<Option<FormatUnit>> {
         // If the parser has been cancelled or errored for some reason.
         if self.finished { return None }
 
         if self.waitqueue.len() != 0 {
-            return Some(self.waitqueue.remove(0));
+            return Some(Some(self.waitqueue.remove(0)));
         }
 
         // Try to parse a new FormatUnit.
@@ -237,12 +239,12 @@ impl<'a> Iterator<Option<FormatUnit>> for FormatParser<'a> {
                                 "C" => color = self.colors.next().unwrap_or(ConstantColor(None)),
 
                                 style => match style.parse() {
-                                    Some(Color(c)) => match color {
+                                    Ok(Color(c)) => match color {
                                         ConstantColor(_) => { color = ConstantColor(Some(c)); },
                                         _ => {}
                                     },
 
-                                    Some(Attr(a)) => match attrs {
+                                    Ok(Attr(a)) => match attrs {
                                         ConstantAttrs(ref mut v) => { v.push(a); },
                                         _ => {}
                                     },
@@ -326,35 +328,37 @@ impl<'a> Iterator<Option<FormatUnit>> for FormatParser<'a> {
 }
 
 impl FromStr for ColorOrAttr {
-    fn from_str(name: &str) -> Option<ColorOrAttr> {
+    type Err = ();
+
+    fn from_str(name: &str) -> Result<ColorOrAttr, ()> {
         match name {
-            "black" => Some(Color(color::BLACK)),
-            "blue" => Some(Color(color::BLUE)),
-            "brightblack" => Some(Color(color::BRIGHT_BLACK)),
-            "brightblue" => Some(Color(color::BRIGHT_BLUE)),
-            "brightcyan" => Some(Color(color::BRIGHT_CYAN)),
-            "brightgreen" => Some(Color(color::BRIGHT_GREEN)),
-            "brightmagenta" => Some(Color(color::BRIGHT_MAGENTA)),
-            "brightred" => Some(Color(color::BRIGHT_RED)),
-            "brightwhite" => Some(Color(color::BRIGHT_WHITE)),
-            "brightyellow" => Some(Color(color::BRIGHT_YELLOW)),
-            "cyan" => Some(Color(color::CYAN)),
-            "green" => Some(Color(color::GREEN)),
-            "magenta" => Some(Color(color::MAGENTA)),
-            "red" => Some(Color(color::RED)),
-            "white" => Some(Color(color::WHITE)),
-            "yellow" => Some(Color(color::YELLOW)),
+            "black" => Ok(Color(color::BLACK)),
+            "blue" => Ok(Color(color::BLUE)),
+            "brightblack" => Ok(Color(color::BRIGHT_BLACK)),
+            "brightblue" => Ok(Color(color::BRIGHT_BLUE)),
+            "brightcyan" => Ok(Color(color::BRIGHT_CYAN)),
+            "brightgreen" => Ok(Color(color::BRIGHT_GREEN)),
+            "brightmagenta" => Ok(Color(color::BRIGHT_MAGENTA)),
+            "brightred" => Ok(Color(color::BRIGHT_RED)),
+            "brightwhite" => Ok(Color(color::BRIGHT_WHITE)),
+            "brightyellow" => Ok(Color(color::BRIGHT_YELLOW)),
+            "cyan" => Ok(Color(color::CYAN)),
+            "green" => Ok(Color(color::GREEN)),
+            "magenta" => Ok(Color(color::MAGENTA)),
+            "red" => Ok(Color(color::RED)),
+            "white" => Ok(Color(color::WHITE)),
+            "yellow" => Ok(Color(color::YELLOW)),
 
-            "bold" => Some(Attr(attr::Bold)),
-            "dim" => Some(Attr(attr::Dim)),
-            "italic" => Some(Attr(attr::Italic(true))),
-            "underline" => Some(Attr(attr::Underline(true))),
-            "blink" => Some(Attr(attr::Blink)),
-            "standout" => Some(Attr(attr::Standout(true))),
-            "reverse" => Some(Attr(attr::Reverse)),
-            "secure" => Some(Attr(attr::Secure)),
+            "bold" => Ok(Attr(attr::Bold)),
+            "dim" => Ok(Attr(attr::Dim)),
+            "italic" => Ok(Attr(attr::Italic(true))),
+            "underline" => Ok(Attr(attr::Underline(true))),
+            "blink" => Ok(Attr(attr::Blink)),
+            "standout" => Ok(Attr(attr::Standout(true))),
+            "reverse" => Ok(Attr(attr::Reverse)),
+            "secure" => Ok(Attr(attr::Secure)),
 
-            _ => None
+            _ => Err(())
         }
     }
 }
@@ -365,7 +369,7 @@ enum ColorOrAttr {
 }
 
 /// A representation of color in a `FormatUnit`.
-#[deriving(Copy)]
+#[derive(Copy)]
 pub enum FormatColor {
     /// A constant color
     ConstantColor(Option<color::Color>),
@@ -400,7 +404,7 @@ impl Clone for FormatAttr {
 
 /// A string of text to be logged. This is either one of the data
 /// fields supported by the `Logger`, or a custom `String`.
-#[deriving(Clone)]
+#[derive(Clone)]
 #[doc(hidden)]
 pub enum FormatText {
     Str(String),
@@ -411,11 +415,10 @@ pub enum FormatText {
 }
 
 /// A `FormatText` with associated style information.
-#[deriving(Clone)]
+#[derive(Clone)]
 #[doc(hidden)]
 pub struct FormatUnit {
     pub text: FormatText,
     pub color: FormatColor,
     pub attrs: FormatAttr
 }
-
