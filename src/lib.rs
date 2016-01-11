@@ -8,7 +8,7 @@ extern crate term;
 
 use iron::{AfterMiddleware, BeforeMiddleware, IronResult, IronError, Request, Response, status};
 use iron::typemap::Key;
-use term::{StdoutTerminal, color, stdout};
+use term::{StdoutTerminal, color, stdout, Result as TermResult};
 
 use std::io;
 use std::io::Write;
@@ -117,8 +117,8 @@ impl Logger {
 }
 
 trait LogWriter {
-    fn write_item(&mut self, text: String, color: Option<color::Color>, attrs: &Vec<term::Attr>) -> io::Result<()>;
-    fn new_line(&mut self) -> io::Result<()>;
+    fn write_item(&mut self, text: String, color: Option<color::Color>, attrs: &Vec<term::Attr>) -> TermResult<()>;
+    fn new_line(&mut self) -> TermResult<()>;
 }
 
 struct TermWriter {
@@ -134,7 +134,7 @@ impl TermWriter {
 }
 
 impl LogWriter for TermWriter {
-    fn write_item(&mut self, text: String, color: Option<color::Color>, attrs: &Vec<term::Attr>) -> io::Result<()> {
+    fn write_item(&mut self, text: String, color: Option<color::Color>, attrs: &Vec<term::Attr>) -> TermResult<()> {
         match color {
             Some(c) => { try!(self.term.fg(c)); }
             None => {},
@@ -147,19 +147,19 @@ impl LogWriter for TermWriter {
         Ok(())
     }
 
-    fn new_line(&mut self) -> io::Result<()> {
+    fn new_line(&mut self) -> TermResult<()> {
         try!(writeln!(self.term, ""));
         Ok(())
     }
 }
 
 impl<T: Write> LogWriter for T {
-    fn write_item(&mut self, text: String, _: Option<color::Color>, _: &Vec<term::Attr>) -> io::Result<()> {
+    fn write_item(&mut self, text: String, _: Option<color::Color>, _: &Vec<term::Attr>) -> TermResult<()> {
         try!(write!(self, "{}", text));
         Ok(())
     }
 
-    fn new_line(&mut self) -> io::Result<()> {
+    fn new_line(&mut self) -> TermResult<()> {
         try!(writeln!(self, ""));
         Ok(())
     }
