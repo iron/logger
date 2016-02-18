@@ -83,6 +83,7 @@ impl Logger {
             };
 
             let log = |w: &mut LogWriter| -> IronResult<()> {
+                let _ = w.write_item(format!("{} ", time::now().strftime("%Y-%m-%d %H:%M:%S").unwrap()), None, &vec![]);
                 for unit in format.iter() {
                     let c = match unit.color {
                         ConstantColor(color) => color,
