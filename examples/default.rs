@@ -11,18 +11,13 @@ use logger::Logger;
 fn main() {
     env_logger::init().unwrap();
 
-    let (logger_before, logger_after) = Logger::new(None);
+    let chain = Chain::new(no_op_handler);
 
-    let mut chain = Chain::new(no_op_handler);
-
-    // Link logger_before as your first before middleware.
-    chain.link_before(logger_before);
-
-    // Link logger_after as your *last* after middleware.
-    chain.link_after(logger_after);
+    // Wrap logger around the rest of your middleware.
+    let logger = Logger::new(None).around(chain);
 
     println!("Run `RUST_LOG=logger=info cargo run --example default` to see logs.");
-    match Iron::new(chain).http("127.0.0.1:3000") {
+    match Iron::new(logger).http("127.0.0.1:3000") {
         Result::Ok(listening) => println!("{:?}", listening),
         Result::Err(err) => panic!("{:?}", err),
     }

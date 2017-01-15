@@ -6,7 +6,7 @@ extern crate iron;
 #[macro_use] extern crate log;
 extern crate time;
 
-use iron::{AfterMiddleware, BeforeMiddleware, IronResult, IronError, Request, Response};
+use iron::{AroundMiddleware, Handler, IronResult, Request, Response};
 use iron::typemap::Key;
 
 use format::FormatText::{Str, Method, URI, Status, ResponseTime, RemoteAddr, RequestTime};
@@ -20,31 +20,58 @@ pub struct Logger {
 }
 
 impl Logger {
-    /// Create a pair of `Logger` middlewares with the specified `format`. If a `None` is passed in, uses the default format:
+    /// Create a  `Logger` middleware with the specified `format`. If a `None` is passed in, uses the default format:
     ///
     /// ```ignore
     /// {method} {uri} -> {status} ({response-time} ms)
     /// ```
     ///
-    /// While the returned value can be passed straight to `Chain::link`, consider making the logger `BeforeMiddleware`
-    /// the first in your chain and the logger `AfterMiddleware` the last by doing something like this:
+    /// This should be wrapped around other middlewares, by doing something like this:
     ///
     /// ```ignore
     /// let mut chain = Chain::new(handler);
-    /// let (logger_before, logger_after) = Logger::new(None);
-    /// chain.link_before(logger_before);
     /// // link other middlewares here...
-    /// chain.link_after(logger_after);
+    /// let handler = Logger::new(None).around(chain);
     /// ```
-    pub fn new(format: Option<Format>) -> (Logger, Logger) {
-        (Logger { format: format.clone() }, Logger { format: format })
+    pub fn new(format: Option<Format>) -> Logger {
+        Logger { format: format }
+    }
+}
+
+struct LoggerHandler {
+    format: Option<Format>,
+    handler: Box<Handler>,
+}
+
+impl AroundMiddleware for Logger {
+    fn around(self, handler: Box<Handler>) -> Box<Handler> {
+        Box::new(LoggerHandler {
+            format: self.format,
+            handler: handler,
+        })
+    }
+}
+
+impl Handler for LoggerHandler {
+    fn handle(&self, req: &mut Request) -> IronResult<Response> {
+        self.initialise(req);
+        match self.handler.handle(req) {
+            Ok(res) => {
+                try!(self.log(req, &res));
+                Ok(res)
+            }
+            Err(err) => {
+                try!(self.log(req, &err.response));
+                Err(err)
+            }
+        }
     }
 }
 
 struct StartTime;
 impl Key for StartTime { type Value = time::Tm; }
 
-impl Logger {
+impl LoggerHandler {
     fn initialise(&self, req: &mut Request) {
         req.extensions.insert::<StartTime>(time::now());
     }
@@ -76,29 +103,5 @@ impl Logger {
         }
 
         Ok(())
-    }
-}
-
-impl BeforeMiddleware for Logger {
-    fn before(&self, req: &mut Request) -> IronResult<()> {
-        self.initialise(req);
-        Ok(())
-    }
-
-    fn catch(&self, req: &mut Request, err: IronError) -> IronResult<()> {
-        self.initialise(req);
-        Err(err)
-    }
-}
-
-impl AfterMiddleware for Logger {
-    fn after(&self, req: &mut Request, res: Response) -> IronResult<Response> {
-        try!(self.log(req, &res));
-        Ok(res)
-    }
-
-    fn catch(&self, req: &mut Request, err: IronError) -> IronResult<Response> {
-        try!(self.log(req, &err.response));
-        Err(err)
     }
 }

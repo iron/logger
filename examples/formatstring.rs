@@ -16,12 +16,12 @@ static FORMAT: &'static str =
 fn main() {
     env_logger::init().unwrap();
 
-    let mut chain = Chain::new(no_op_handler);
     let format = Format::new(FORMAT);
-    chain.link(Logger::new(Some(format.unwrap())));
-	
+    let logger = Logger::new(Some(format.unwrap()))
+    let hanlder = logger.around(no_op_handler);
+
     println!("Run `RUST_LOG=info cargo run --example formatstring` to see logs.");
-    match Iron::new(chain).http("127.0.0.1:3000") {
+    match Iron::new(handler).http("127.0.0.1:3000") {
         Result::Ok(listening) => println!("{:?}", listening),
         Result::Err(err) => panic!("{:?}", err),
     }
