@@ -57,11 +57,11 @@ impl Handler for LoggerHandler {
         self.initialise(req);
         match self.handler.handle(req) {
             Ok(res) => {
-                try!(self.log(req, &res));
+                self.log(req, &res)?;
                 Ok(res)
             }
             Err(err) => {
-                try!(self.log(req, &err.response));
+                self.log(req, &err.response)?;
                 Err(err)
             }
         }
